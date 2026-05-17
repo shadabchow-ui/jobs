@@ -4,7 +4,8 @@ import type { AdzunaEnv } from "~/services/adzuna.server";
 import { JOBS_FIXTURES } from "~/fixtures/jobs.fixture";
 import { fetchAdzunaJobs } from "~/services/adzuna.server";
 
-const DEFAULT_PER_PAGE = 5;
+const FIXTURE_PER_PAGE = 5;
+const ADZUNA_PER_PAGE = 100;
 
 // ---------------------------------------------------------------------------
 // Adzuna Job → JobFixture adapter
@@ -159,10 +160,17 @@ export async function loadJobListing(
   const location = (params.l ?? "").trim();
   const sort = params.sort ?? "relevance";
 
-  const liveJobs = await tryAdzuna(query, location, params, env);
+  const liveResult = await tryAdzuna(query, location, params, env);
 
-  if (liveJobs && liveJobs.length > 0) {
-    return buildAdzunaResult(liveJobs, { query, location, sort });
+  if (liveResult && liveResult.jobs.length > 0) {
+    const page = parseInt(params.page ?? "1", 10);
+    return buildAdzunaResult(liveResult.jobs, {
+      query,
+      location,
+      sort,
+      page: isNaN(page) || page < 1 ? 1 : page,
+      count: liveResult.count,
+    });
   }
 
   return buildFixtureResult(url, { query, location, sort });
@@ -177,23 +185,27 @@ async function tryAdzuna(
   location: string,
   params: JobListingUrlParams,
   env?: AdzunaEnv,
-): Promise<JobFixture[] | null> {
+): Promise<{ jobs: JobFixture[]; count: number } | null> {
   const page = parseInt(params.page ?? "1", 10);
-  const adzunaJobs = await fetchAdzunaJobs({
+  const result = await fetchAdzunaJobs({
     keyword: query || undefined,
     location: location || undefined,
     page: isNaN(page) || page < 1 ? 1 : page,
-    resultsPerPage: DEFAULT_PER_PAGE,
+    resultsPerPage: ADZUNA_PER_PAGE,
   }, env);
 
-  if (!adzunaJobs || adzunaJobs.length === 0) return null;
-  return adzunaJobs.map(adzunaJobToFixture);
+  if (!result) return null;
+  return {
+    jobs: result.jobs.map(adzunaJobToFixture),
+    count: result.count,
+  };
 }
 
 function buildAdzunaResult(
   jobs: JobFixture[],
-  meta: { query: string; location: string; sort: string },
+  meta: { query: string; location: string; sort: string; page: number; count: number },
 ): JobListingPageData {
+  const totalPages = Math.max(1, Math.ceil(meta.count / ADZUNA_PER_PAGE));
   return {
     jobs,
     selectedJob: jobs.length > 0 ? jobs[0] : null,
@@ -203,10 +215,10 @@ function buildAdzunaResult(
     salary: "",
     jobType: "",
     experience: "",
-    page: 1,
-    perPage: DEFAULT_PER_PAGE,
-    totalJobs: jobs.length,
-    totalPages: 1,
+    page: meta.page,
+    perPage: ADZUNA_PER_PAGE,
+    totalJobs: meta.count,
+    totalPages,
     sort: meta.sort,
     source: "adzuna",
     displayLabel: "Showing live jobs",
@@ -262,11 +274,11 @@ function buildFixtureResult(
   filtered = sortJobs(filtered, sort);
 
   const totalJobs = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(totalJobs / DEFAULT_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(totalJobs / FIXTURE_PER_PAGE));
   if (page > totalPages) page = totalPages;
 
-  const start = (page - 1) * DEFAULT_PER_PAGE;
-  const pagedJobs = filtered.slice(start, start + DEFAULT_PER_PAGE);
+  const start = (page - 1) * FIXTURE_PER_PAGE;
+  const pagedJobs = filtered.slice(start, start + FIXTURE_PER_PAGE);
 
   return {
     jobs: pagedJobs,
@@ -278,7 +290,7 @@ function buildFixtureResult(
     jobType,
     experience,
     page,
-    perPage: DEFAULT_PER_PAGE,
+    perPage: FIXTURE_PER_PAGE,
     totalJobs,
     totalPages,
     sort,

@@ -1,5 +1,5 @@
 import type { Job } from "~/types/page-model.types";
-import { normalizeAdzunaResponse } from "~/lib/adzuna-normalizer";
+import { normalizeAdzunaResponse, type AdzunaRawResponse } from "~/lib/adzuna-normalizer";
 
 // ---------------------------------------------------------------------------
 // Adzuna env interface
@@ -109,7 +109,7 @@ async function fetchWithTimeout(url: string): Promise<Response | null> {
 export async function fetchAdzunaJobs(
   params: AdzunaSearchParams = {},
   env?: AdzunaEnv,
-): Promise<Job[] | null> {
+): Promise<{ jobs: Job[]; count: number } | null> {
   const cfg = resolveAdzunaConfig(env);
   if (!isConfigured(cfg)) return null;
 
@@ -128,10 +128,13 @@ export async function fetchAdzunaJobs(
 
   if (!raw || typeof raw !== "object") return null;
 
-  const jobs = normalizeAdzunaResponse(raw as Record<string, unknown>);
+  const rawBody = raw as AdzunaRawResponse;
+  const jobs = normalizeAdzunaResponse(rawBody);
   if (jobs.length === 0) return null;
 
-  return jobs;
+  const count = typeof rawBody.count === "number" ? rawBody.count : jobs.length;
+
+  return { jobs, count };
 }
 
 // ---------------------------------------------------------------------------

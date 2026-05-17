@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { loadJobListing } from "~/loaders/jobs.loader.server";
 import { JOBS_FIXTURES } from "~/fixtures/jobs.fixture";
 
@@ -188,5 +188,157 @@ describe("jobs loader", () => {
     const url = buildUrl({});
     const result = await loadJobListing(url);
     expect(["fixture", "adzuna"]).toContain(result.source);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Adzuna path (mocked)
+// ---------------------------------------------------------------------------
+
+function makeAdzunaMockJobs(count: number) {
+  const results = [];
+  for (let i = 1; i <= count; i++) {
+    results.push({
+      id: i,
+      title: `Job ${i}`,
+      company: { display_name: "TestCo" },
+      location: { display_name: "New York, NY", area: ["New York", "NY", "US"] },
+      redirect_url: `https://example.com/job/${i}`,
+      created: "2026-05-10T00:00:00Z",
+      description: `Description for job ${i}.`,
+    });
+  }
+  return results;
+}
+
+describe("jobs loader — Adzuna path (mocked)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns adzuna source with real count and correct pagination", async () => {
+    const mockResponse = {
+      results: makeAdzunaMockJobs(2),
+      count: 81642,
+    };
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(mockResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const url = buildUrl({ q: "developer", l: "New York" });
+    const result = await loadJobListing(url, {
+      ADZUNA_APP_ID: "test-id",
+      ADZUNA_APP_KEY: "test-key",
+    });
+
+    expect(result.source).toBe("adzuna");
+    expect(result.displayLabel).toBe("Showing live jobs");
+    expect(result.totalJobs).toBe(81642);
+    expect(result.perPage).toBe(100);
+    expect(result.totalPages).toBe(Math.ceil(81642 / 100));
+    expect(result.page).toBe(1);
+    expect(result.jobs.length).toBe(2);
+    expect(result.jobs[0].source).toBe("adzuna");
+  });
+
+  it("passes page 2 to Adzuna and returns page 2 in result", async () => {
+    const mockResponse = {
+      results: makeAdzunaMockJobs(2),
+      count: 81642,
+    };
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(mockResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const url = buildUrl({ q: "developer", l: "New York", page: "2" });
+    const result = await loadJobListing(url, {
+      ADZUNA_APP_ID: "test-id",
+      ADZUNA_APP_KEY: "test-key",
+    });
+
+    expect(result.source).toBe("adzuna");
+    expect(result.page).toBe(2);
+
+    const calledUrl = fetchSpy.mock.calls[0][0] as string;
+    expect(calledUrl).toContain("/search/2");
+  });
+
+  it("falls back to totalJobs = jobs.length when count is missing", async () => {
+    const mockResponse = {
+      results: makeAdzunaMockJobs(3),
+    };
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(mockResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const url = buildUrl({});
+    const result = await loadJobListing(url, {
+      ADZUNA_APP_ID: "test-id",
+      ADZUNA_APP_KEY: "test-key",
+    });
+
+    expect(result.source).toBe("adzuna");
+    expect(result.totalJobs).toBe(3);
+    expect(result.perPage).toBe(100);
+    expect(result.totalPages).toBe(1);
+    expect(result.jobs.length).toBe(3);
+  });
+
+  it("falls back to fixtures when Adzuna fetch returns null (credentials missing)", async () => {
+    const url = buildUrl({ q: "frontend" });
+    const result = await loadJobListing(url);
+
+    expect(result.source).toBe("fixture");
+    expect(result.displayLabel).toBe("Showing sample jobs");
+    expect(result.totalJobs).toBe(2);
+  });
+
+  it("falls back to fixtures when Adzuna returns non-2xx", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("Unauthorized", { status: 401 }),
+    );
+
+    const url = buildUrl({ q: "frontend" });
+    const result = await loadJobListing(url, {
+      ADZUNA_APP_ID: "test-id",
+      ADZUNA_APP_KEY: "test-key",
+    });
+
+    expect(result.source).toBe("fixture");
+    expect(result.displayLabel).toBe("Showing sample jobs");
+    expect(result.totalJobs).toBe(2);
+  });
+
+  it("fixture fallback still uses fixture pagination (FIXTURE_PER_PAGE=5)", async () => {
+    const url = buildUrl({});
+    const result = await loadJobListing(url);
+
+    expect(result.source).toBe("fixture");
+    expect(result.perPage).toBe(5);
+    expect(result.page).toBe(1);
+    expect(result.totalPages).toBe(Math.ceil(result.totalJobs / 5));
+  });
+
+  it("fixture fallback respects query filter", async () => {
+    const url = buildUrl({ q: "senior" });
+    const result = await loadJobListing(url);
+
+    expect(result.source).toBe("fixture");
+    expect(result.totalJobs).toBeGreaterThanOrEqual(1);
+    for (const job of result.jobs) {
+      expect(job.title.toLowerCase()).toContain("senior");
+    }
   });
 });
