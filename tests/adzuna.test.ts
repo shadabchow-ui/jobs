@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   normalizeAdzunaJob,
   normalizeAdzunaResponse,
@@ -9,6 +9,7 @@ import {
   type AdzunaRawResult,
 } from "~/lib/adzuna-normalizer";
 import type { Job } from "~/types/page-model.types";
+import { getAdzunaHealth } from "~/services/adzuna.server";
 
 // ---------------------------------------------------------------------------
 // Fixture: well-formed Adzuna raw result
@@ -368,5 +369,111 @@ describe("isAdzunaSource edge cases", () => {
     const raw = makeRaw({ id: 99, title: "Test Job" });
     const job = normalizeAdzunaJob(raw);
     expect(isAdzunaSource(job!)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getAdzunaHealth
+// ---------------------------------------------------------------------------
+
+describe("getAdzunaHealth", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns not_configured when env is missing", async () => {
+    const result = await getAdzunaHealth();
+    expect(result.configured).toBe(false);
+    expect(result.hasAppId).toBe(false);
+    expect(result.hasAppKey).toBe(false);
+    expect(result.errorType).toBe("not_configured");
+    expect(result.status).toBeNull();
+    expect(result.ok).toBe(false);
+    expect(result.resultCount).toBe(0);
+    expect(result.country).toBe("us");
+  });
+
+  it("returns not_configured when env has empty keys", async () => {
+    const result = await getAdzunaHealth({ ADZUNA_APP_ID: "", ADZUNA_APP_KEY: "" });
+    expect(result.configured).toBe(false);
+    expect(result.errorType).toBe("not_configured");
+  });
+
+  it("returns ok true with results when configured and fetch succeeds", async () => {
+    const mockResponse = {
+      results: [
+        {
+          id: 1,
+          title: "Developer",
+          company: { display_name: "TechCo" },
+          location: { display_name: "New York, NY", area: ["New York", "NY", "US"] },
+          redirect_url: "https://example.com/job/1",
+          created: "2026-05-10T00:00:00Z",
+          description: "A developer job.",
+        },
+      ],
+      count: 1,
+    };
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(mockResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const result = await getAdzunaHealth({
+      ADZUNA_APP_ID: "test-app-id",
+      ADZUNA_APP_KEY: "test-app-key",
+    });
+
+    expect(result.configured).toBe(true);
+    expect(result.hasAppId).toBe(true);
+    expect(result.hasAppKey).toBe(true);
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe(200);
+    expect(result.resultCount).toBe(1);
+    expect(result.errorType).toBeNull();
+  });
+
+  it("returns http_error on non-ok response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("Unauthorized", { status: 401 }),
+    );
+
+    const result = await getAdzunaHealth({
+      ADZUNA_APP_ID: "test-app-id",
+      ADZUNA_APP_KEY: "test-app-key",
+    });
+
+    expect(result.configured).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(401);
+    expect(result.errorType).toBe("http_error");
+  });
+
+  it("returns network_error when fetch throws", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network failure"));
+
+    const result = await getAdzunaHealth({
+      ADZUNA_APP_ID: "test-app-id",
+      ADZUNA_APP_KEY: "test-app-key",
+    });
+
+    expect(result.configured).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.status).toBeNull();
+    expect(result.errorType).toBe("network_error");
+  });
+
+  it("does not leak secrets in the response", async () => {
+    const result = await getAdzunaHealth({
+      ADZUNA_APP_ID: "secret-id-123",
+      ADZUNA_APP_KEY: "secret-key-456",
+    });
+
+    const json = JSON.stringify(result);
+    expect(json).not.toContain("secret-id-123");
+    expect(json).not.toContain("secret-key-456");
   });
 });
