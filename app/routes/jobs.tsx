@@ -19,9 +19,12 @@ export function links() {
   return [{ rel: "stylesheet", href: listingCss }];
 }
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request, context }: LoaderFunctionArgs) {
   const url = new URL(request.url);
-  const data = await loadJobListing(url);
+  const cf = context?.cloudflare as
+    | { env: { ADZUNA_APP_ID?: string; ADZUNA_APP_KEY?: string; ADZUNA_COUNTRY?: string } }
+    | undefined;
+  const data = await loadJobListing(url, cf?.env);
   return json(data);
 }
 

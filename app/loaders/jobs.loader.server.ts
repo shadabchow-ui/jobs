@@ -1,5 +1,6 @@
 import type { JobFixture, Job } from "~/types/page-model.types";
 import type { JobListingPageData, JobListingUrlParams } from "~/types/job.types";
+import type { AdzunaEnv } from "~/services/adzuna.server";
 import { JOBS_FIXTURES } from "~/fixtures/jobs.fixture";
 import { fetchAdzunaJobs } from "~/services/adzuna.server";
 
@@ -146,14 +147,19 @@ export function parseJobListingParams(url: URL): JobListingUrlParams {
 /**
  * Load job listing — tries Adzuna first, falls back to local fixtures.
  * Safe to call in any loader; never throws.
+ *
+ * @param env  Optional Cloudflare env (from context.cloudflare.env) for Adzuna credentials.
  */
-export async function loadJobListing(url: URL): Promise<JobListingPageData> {
+export async function loadJobListing(
+  url: URL,
+  env?: AdzunaEnv,
+): Promise<JobListingPageData> {
   const params = parseJobListingParams(url);
   const query = (params.q ?? "").trim();
   const location = (params.l ?? "").trim();
   const sort = params.sort ?? "relevance";
 
-  const liveJobs = await tryAdzuna(query, location, params);
+  const liveJobs = await tryAdzuna(query, location, params, env);
 
   if (liveJobs && liveJobs.length > 0) {
     return buildAdzunaResult(liveJobs, { query, location, sort });
@@ -170,6 +176,7 @@ async function tryAdzuna(
   query: string,
   location: string,
   params: JobListingUrlParams,
+  env?: AdzunaEnv,
 ): Promise<JobFixture[] | null> {
   const page = parseInt(params.page ?? "1", 10);
   const adzunaJobs = await fetchAdzunaJobs({
@@ -177,7 +184,7 @@ async function tryAdzuna(
     location: location || undefined,
     page: isNaN(page) || page < 1 ? 1 : page,
     resultsPerPage: DEFAULT_PER_PAGE,
-  });
+  }, env);
 
   if (!adzunaJobs || adzunaJobs.length === 0) return null;
   return adzunaJobs.map(adzunaJobToFixture);
