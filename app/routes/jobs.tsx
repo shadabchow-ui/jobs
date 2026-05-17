@@ -21,7 +21,7 @@ export function links() {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
-  const data = loadJobListing(url);
+  const data = await loadJobListing(url);
   return json(data);
 }
 
@@ -54,6 +54,7 @@ export default function Jobs() {
     totalJobs,
     totalPages,
     sort,
+    displayLabel,
   } = data;
 
   const filterCurrent = { remote, salary, jobType, experience };
@@ -70,6 +71,7 @@ export default function Jobs() {
                 {totalJobs.toLocaleString()} job{totalJobs !== 1 ? "s" : ""} found
                 {query ? <> for &ldquo;{query}&rdquo;</> : null}
                 {location ? <> in {location}</> : null}
+                {" "}<span className="listing-page__controls-source">{displayLabel}</span>
               </p>
             ) : (
               <p className="listing-page__controls-count">0 jobs found</p>

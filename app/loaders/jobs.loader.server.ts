@@ -1,8 +1,58 @@
-import type { JobFixture } from "~/types/page-model.types";
+import type { JobFixture, Job } from "~/types/page-model.types";
 import type { JobListingPageData, JobListingUrlParams } from "~/types/job.types";
 import { JOBS_FIXTURES } from "~/fixtures/jobs.fixture";
+import { fetchAdzunaJobs } from "~/services/adzuna.server";
 
 const DEFAULT_PER_PAGE = 5;
+
+// ---------------------------------------------------------------------------
+// Adzuna Job → JobFixture adapter
+// ---------------------------------------------------------------------------
+
+function adzunaJobToFixture(job: Job): JobFixture {
+  const tags: string[] = [];
+  if (job.categories && job.categories.length > 0) {
+    for (const cat of job.categories) {
+      if (cat.name) tags.push(cat.name);
+    }
+  }
+  if (tags.length === 0) {
+    tags.push(job.source);
+  }
+
+  return {
+    id: job.id,
+    slug: job.slug,
+    title: job.title,
+    company: job.company.name,
+    companySlug: job.company.slug,
+    location: job.location.displayName,
+    remote: job.location.remote,
+    salaryRange: job.salary?.displayRange ?? null,
+    postedAt: job.postedAt,
+    description: job.description,
+    tags,
+    source: job.source,
+    jobType: null,
+    responsibilities: [],
+    requirements: [],
+    benefits: [],
+    applyUrl: job.applyUrl,
+    aiSummary: null,
+    detectedSkills: null,
+    seniority: null,
+    remoteType: null,
+    salaryNote: null,
+    matchScore: null,
+    matchedSkills: null,
+    missingSkills: null,
+    jobQualityScore: null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Fixture-based salary range parser (unchanged)
+// ---------------------------------------------------------------------------
 
 function parseSalaryRange(range: string | null): { min: number; max: number } | null {
   if (!range) return null;
@@ -17,6 +67,10 @@ function parseSalaryRange(range: string | null): { min: number; max: number } | 
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Fixture-based filtering helpers (unchanged)
+// ---------------------------------------------------------------------------
 
 function matchesKeyword(job: JobFixture, query: string): boolean {
   const q = query.toLowerCase();
@@ -72,6 +126,10 @@ function sortJobs(jobs: JobFixture[], sort: string): JobFixture[] {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 export function parseJobListingParams(url: URL): JobListingUrlParams {
   return {
     q: url.searchParams.get("q"),
@@ -85,16 +143,86 @@ export function parseJobListingParams(url: URL): JobListingUrlParams {
   };
 }
 
-export function loadJobListing(url: URL): JobListingPageData {
+/**
+ * Load job listing — tries Adzuna first, falls back to local fixtures.
+ * Safe to call in any loader; never throws.
+ */
+export async function loadJobListing(url: URL): Promise<JobListingPageData> {
   const params = parseJobListingParams(url);
-
   const query = (params.q ?? "").trim();
   const location = (params.l ?? "").trim();
+  const sort = params.sort ?? "relevance";
+
+  const liveJobs = await tryAdzuna(query, location, params);
+
+  if (liveJobs && liveJobs.length > 0) {
+    return buildAdzunaResult(liveJobs, { query, location, sort });
+  }
+
+  return buildFixtureResult(url, { query, location, sort });
+}
+
+// ---------------------------------------------------------------------------
+// Adzuna path
+// ---------------------------------------------------------------------------
+
+async function tryAdzuna(
+  query: string,
+  location: string,
+  params: JobListingUrlParams,
+): Promise<JobFixture[] | null> {
+  const page = parseInt(params.page ?? "1", 10);
+  const adzunaJobs = await fetchAdzunaJobs({
+    keyword: query || undefined,
+    location: location || undefined,
+    page: isNaN(page) || page < 1 ? 1 : page,
+    resultsPerPage: DEFAULT_PER_PAGE,
+  });
+
+  if (!adzunaJobs || adzunaJobs.length === 0) return null;
+  return adzunaJobs.map(adzunaJobToFixture);
+}
+
+function buildAdzunaResult(
+  jobs: JobFixture[],
+  meta: { query: string; location: string; sort: string },
+): JobListingPageData {
+  return {
+    jobs,
+    selectedJob: jobs.length > 0 ? jobs[0] : null,
+    query: meta.query,
+    location: meta.location,
+    remote: "",
+    salary: "",
+    jobType: "",
+    experience: "",
+    page: 1,
+    perPage: DEFAULT_PER_PAGE,
+    totalJobs: jobs.length,
+    totalPages: 1,
+    sort: meta.sort,
+    source: "adzuna",
+    displayLabel: "Showing live jobs",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Fixture fallback path (preserves existing filtering logic)
+// ---------------------------------------------------------------------------
+
+function buildFixtureResult(
+  url: URL,
+  meta: { query: string; location: string; sort: string },
+): JobListingPageData {
+  const params = parseJobListingParams(url);
+
+  const query = meta.query;
+  const location = meta.location;
   const remote = params.remote ?? "";
   const salary = params.salary ?? "";
   const jobType = params.jobType ?? "";
   const experience = params.experience ?? "";
-  const sort = params.sort ?? "relevance";
+  const sort = meta.sort;
 
   let page = parseInt(params.page ?? "1", 10);
   if (isNaN(page) || page < 1) page = 1;
@@ -133,11 +261,9 @@ export function loadJobListing(url: URL): JobListingPageData {
   const start = (page - 1) * DEFAULT_PER_PAGE;
   const pagedJobs = filtered.slice(start, start + DEFAULT_PER_PAGE);
 
-  const selectedJob = pagedJobs.length > 0 ? pagedJobs[0] : null;
-
   return {
     jobs: pagedJobs,
-    selectedJob,
+    selectedJob: pagedJobs.length > 0 ? pagedJobs[0] : null,
     query,
     location,
     remote,
@@ -149,5 +275,7 @@ export function loadJobListing(url: URL): JobListingPageData {
     totalJobs,
     totalPages,
     sort,
+    source: "fixture",
+    displayLabel: "Showing sample jobs",
   };
 }

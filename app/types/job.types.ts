@@ -38,6 +38,8 @@ export interface JobListingPageData {
   totalJobs: number;
   totalPages: number;
   sort: string;
+  source: "adzuna" | "fixture";
+  displayLabel: string;
 }
 
 export interface JobListingUrlParams {
