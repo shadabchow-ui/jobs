@@ -6,17 +6,17 @@ pages_build_output_dir = "./build/client"
 [vars]
 DEPLOY_VERSION = "dev-local"
 RELEASE_CHANNEL = "stable"
-ADZUNA_APP_ID = "12b2afb"
+ADZUNA_APP_ID = "1d2b2afb"
 ADZUNA_COUNTRY = "us"
 
 [env.preview.vars]
 DEPLOY_VERSION = "preview-build"
 RELEASE_CHANNEL = "canary"
-ADZUNA_APP_ID = "12b2afb"
+ADZUNA_APP_ID = "1d2b2afb"
 ADZUNA_COUNTRY = "us"
 
 [env.production.vars]
 DEPLOY_VERSION = "prod-release"
 RELEASE_CHANNEL = "stable"
-ADZUNA_APP_ID = "12b2afb"
+ADZUNA_APP_ID = "1d2b2afb"
 ADZUNA_COUNTRY = "us"
