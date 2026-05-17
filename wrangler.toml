@@ -1,0 +1,16 @@
+name = "jobs-board"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "./build/client"
+
+[vars]
+DEPLOY_VERSION = "dev-local"
+RELEASE_CHANNEL = "stable"
+
+[env.preview.vars]
+DEPLOY_VERSION = "preview-build"
+RELEASE_CHANNEL = "canary"
+
+[env.production.vars]
+DEPLOY_VERSION = "prod-release"
+RELEASE_CHANNEL = "stable"

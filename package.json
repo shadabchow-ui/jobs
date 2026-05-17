@@ -1,0 +1,38 @@
+{
+  "name": "jobs-board",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SSR-first job board. Remix + React 18 + TypeScript on Cloudflare Workers.",
+  "type": "module",
+  "scripts": {
+    "build": "remix vite:build",
+    "dev": "remix vite:dev",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --ext .ts,.tsx app/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "deploy": "wrangler pages deploy ./build/client"
+  },
+  "dependencies": {
+    "@remix-run/cloudflare": "^2.8.0",
+    "@remix-run/cloudflare-pages": "^2.8.0",
+    "@remix-run/react": "^2.8.0",
+    "isbot": "^4.1.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240403.0",
+    "@remix-run/dev": "^2.8.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0",
+    "vitest": "^1.4.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "wrangler": "^3.50.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
