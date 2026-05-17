@@ -65,6 +65,18 @@ describe("job fixture detail fields", () => {
   });
 });
 
+describe("job detail — missing slug safety", () => {
+  it("returns null for adzuna-style slugs not in fixtures", () => {
+    const result = loadJobDetail("senior-frontend-engineer-1001");
+    expect(result).toBeNull();
+  });
+
+  it("returns null for random unknown slug", () => {
+    const result = loadJobDetail("some-random-slug-12345");
+    expect(result).toBeNull();
+  });
+});
+
 describe("similar jobs", () => {
   it("similar jobs do not include the current job", () => {
     for (const job of JOBS_FIXTURES) {

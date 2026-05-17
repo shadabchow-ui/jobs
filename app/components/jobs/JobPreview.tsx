@@ -15,6 +15,9 @@ export function JobPreview({ job }: JobPreviewProps) {
     );
   }
 
+  const isAdzuna = job.source === "adzuna";
+  const hasApplyUrl = !!job.applyUrl;
+
   return (
     <aside className="job-preview" aria-label={`Preview: ${job.title}`}>
       <header className="job-preview__header">
@@ -58,9 +61,20 @@ export function JobPreview({ job }: JobPreviewProps) {
         <button className="job-preview__save-btn" type="button">
           Save Job
         </button>
-        <button className="job-preview__apply-btn" type="button">
-          Apply Now
-        </button>
+        {isAdzuna && hasApplyUrl ? (
+          <a
+            href={job.applyUrl!}
+            className="job-preview__apply-btn"
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+          >
+            Apply Now
+          </a>
+        ) : (
+          <button className="job-preview__apply-btn" type="button">
+            Apply Now
+          </button>
+        )}
       </footer>
     </aside>
   );

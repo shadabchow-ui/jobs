@@ -7,6 +7,9 @@ interface JobCardProps {
 }
 
 export function JobCard({ job, isSelected = false }: JobCardProps) {
+  const isAdzuna = job.source === "adzuna";
+  const hasApplyUrl = !!job.applyUrl;
+
   return (
     <article
       className={`job-card${isSelected ? " job-card--selected" : ""}`}
@@ -14,9 +17,22 @@ export function JobCard({ job, isSelected = false }: JobCardProps) {
     >
       <header className="job-card__header">
         <h2 id={`job-title-${job.id}`} className="job-card__title">
-          <Link to={`/jobs/${job.slug}`} className="job-card__title-link">
-            {job.title}
-          </Link>
+          {isAdzuna && hasApplyUrl ? (
+            <a
+              href={job.applyUrl!}
+              className="job-card__title-link"
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+            >
+              {job.title}
+            </a>
+          ) : isAdzuna ? (
+            <span className="job-card__title-text">{job.title}</span>
+          ) : (
+            <Link to={`/jobs/${job.slug}`} className="job-card__title-link">
+              {job.title}
+            </Link>
+          )}
         </h2>
         <p className="job-card__company">{job.company}</p>
       </header>

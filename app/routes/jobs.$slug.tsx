@@ -1,6 +1,11 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/cloudflare";
 import { json } from "@remix-run/cloudflare";
-import { useLoaderData, Link } from "@remix-run/react";
+import {
+  useLoaderData,
+  Link,
+  useRouteError,
+  isRouteErrorResponse,
+} from "@remix-run/react";
 
 import { loadJobDetail } from "~/loaders/job-detail.loader.server";
 import { JobDetailHeader } from "~/components/jobs/JobDetailHeader";
@@ -32,6 +37,38 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
     },
   ];
 };
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+
+  if (isRouteErrorResponse(error) && error.status === 404) {
+    return (
+      <div className="jd-page">
+        <div className="jd-page__inner">
+          <nav className="jd-page__breadcrumb" aria-label="Breadcrumb">
+            <Link to="/jobs" className="jd-page__breadcrumb-link">
+              Jobs
+            </Link>
+            <span className="jd-page__breadcrumb-sep" aria-hidden="true">
+              /
+            </span>
+          </nav>
+          <div className="jd-page__not-found">
+            <h1>Job no longer available</h1>
+            <p>
+              This job listing is no longer available or the link is incorrect.
+            </p>
+            <Link to="/jobs" className="jd-page__back-link">
+              Browse all jobs
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  throw error;
+}
 
 export default function JobDetail() {
   const { job, company, similarJobs } = useLoaderData<typeof loader>();

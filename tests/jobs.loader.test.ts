@@ -296,6 +296,39 @@ describe("jobs loader — Adzuna path (mocked)", () => {
     expect(result.jobs.length).toBe(3);
   });
 
+  it("adzuna job fixture preserves applyUrl", async () => {
+    const mockResponse = {
+      results: [{
+        id: 5001,
+        title: "Adzuna Job With Apply",
+        company: { display_name: "ApplyCo" },
+        location: { display_name: "New York, NY", area: ["New York", "NY", "US"] },
+        redirect_url: "https://external.com/apply/5001",
+        created: "2026-05-10T00:00:00Z",
+        description: "A job with an external apply URL.",
+      }],
+      count: 1,
+    };
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(mockResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const url = buildUrl({ q: "developer" });
+    const result = await loadJobListing(url, {
+      ADZUNA_APP_ID: "test-id",
+      ADZUNA_APP_KEY: "test-key",
+    });
+
+    expect(result.source).toBe("adzuna");
+    expect(result.jobs[0].source).toBe("adzuna");
+    expect(result.jobs[0].applyUrl).toBe("https://external.com/apply/5001");
+    expect(result.jobs[0].slug).toBe("adzuna-job-with-apply-5001");
+  });
+
   it("falls back to fixtures when Adzuna fetch returns null (credentials missing)", async () => {
     const url = buildUrl({ q: "frontend" });
     const result = await loadJobListing(url);
