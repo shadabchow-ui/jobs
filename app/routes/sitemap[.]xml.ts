@@ -1,0 +1,56 @@
+import type { LoaderFunctionArgs } from "@remix-run/cloudflare";
+
+const SITEMAP_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://jobs.upcube.ai/</loc>
+    <lastmod>2026-05-20</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://jobs.upcube.ai/jobs</loc>
+    <lastmod>2026-05-20</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+  </url>
+  <url>
+    <loc>https://jobs.upcube.ai/companies</loc>
+    <lastmod>2026-05-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://jobs.upcube.ai/salaries</loc>
+    <lastmod>2026-05-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://jobs.upcube.ai/ai-career-tools</loc>
+    <lastmod>2026-05-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://jobs.upcube.ai/my-jobs</loc>
+    <lastmod>2026-05-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.65</priority>
+  </url>
+  <url>
+    <loc>https://jobs.upcube.ai/profile</loc>
+    <lastmod>2026-05-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.65</priority>
+  </url>
+</urlset>`;
+
+export async function loader(_args: LoaderFunctionArgs) {
+  return new Response(SITEMAP_XML, {
+    headers: {
+      "Content-Type": "application/xml; charset=utf-8",
+      "Cache-Control": "public, max-age=3600",
+    },
+  });
+}
